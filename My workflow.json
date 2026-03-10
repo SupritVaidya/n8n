@@ -1,0 +1,712 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 16,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -368,
+        0
+      ],
+      "id": "fa6e225e-17be-4ed5-bc7e-f2becdeb8c63",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "queryString": "Suprit_s_Resume werkstudent.pdf",
+        "limit": 1,
+        "filter": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        48,
+        0
+      ],
+      "id": "7ba02700-0c3f-42a7-bc00-fa1603a6444b",
+      "name": "Search files and folders",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "7Bh0lLzmOBB3FgSB",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "19tb5CLN6S9AgkEM6NRV2wf3LrZPEjE9k",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        256,
+        0
+      ],
+      "id": "c7a256be-3288-44cb-b5a6-9e33fbaaed85",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "7Bh0lLzmOBB3FgSB",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [
+        528,
+        -112
+      ],
+      "id": "e0c50ee3-3590-4a71-94cf-d155c885d61f",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/curious_coder~linkedin-jobs-scraper/run-sync-get-dataset-items?token=YOUR_TOKEN_NAME",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"count\": 100,\n  \"scrapeCompany\": true,\n  \"fullDescription\": true,\n  \"proxyConfiguration\": { \"useApifyProxy\": true },\n  \"urls\": [\n    \"https://www.linkedin.com/jobs/search?keywords=.NET%20C%23%20(Werkstudent%20OR%20\\\"working%20student\\\"%20OR%20student%20OR%20\\\"studentische%20Hilfskraft\\\"%20OR%20\\\"studentische%20Aushilfe\\\"%20OR%20\\\"Student%20Assistant\\\"%20OR%20Teilzeit)&location=Germany&f_TPR=r86400\"\n  ]\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        912,
+        256
+      ],
+      "id": "928cc457-bed0-4605-94f4-43e502ae72f7",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IW2pX8df17ncMbYg",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here is the job posting information:\nCompany Name: {{ $json.companyName }}\nJob Posting Description:{{ $json.descriptionText }} \nJob application link: {{ $json.link }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an expert Linkedin job posting filtering agent. Your only task is to determine whether or not job posting provided to you is suitable for the specific candidate with the provided original resume. The original resume may include various skills or qualifications, you will have to think deeply and determinee if any of the candidate's skillsets or knowledge is suitable to the job posting.\n\nHere is the information from the job posting and company:\nCompany Name: {{ $json.companyName }}\nJob Posting Description: {{ $json.descriptionText }}\n\nHere is the candidate's original resume: {{ $items(\"Extract from File\")[0].json.text || $items(\"Extract from File\")[0].json.text }}\nIf the job posting is suitable to the candidate according to their siills, experience and knowledge. You must rate whether or not the candidate's resume is suitable to the job posting out of 100. If the rating is 0 then the output will be 0 meaning that the job posting is not suitable to the candidate at all. If the rating is 100, then the output will be 100 meaning that the job posting is extremely suitable to the candidate. \nOutput in JSON format as indicated in the output parser."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -320,
+        624
+      ],
+      "id": "9046d92b-bbce-416a-a75c-ffde1a7304d4",
+      "name": "Job Match AI Agent"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1232,
+        -96
+      ],
+      "id": "59e37516-61d4-407b-8904-a0dcbd946e1e",
+      "name": "Merge Resume + Jobs"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        608,
+        1104
+      ],
+      "id": "1f0d0f00-9d20-4ebe-bb0e-778185221f7f",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_ID_HERE",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        1104
+      ],
+      "id": "ec71fa10-62ad-43a3-b129-d2f7eb1e31ca",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"company_name\": \"string\",\n\t\"job_description\": \"string\",\n    \"rating\": \"number\",\n    \"justification\": \"string\",\n    \"Job application link\": \"string\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -368,
+        960
+      ],
+      "id": "043348e7-23a9-4194-984b-b502a11f3666",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c7179efc-1234-4bd0-a39b-9fb3cc4aeb44",
+              "leftValue": "={{ $json.output.rating }}",
+              "rightValue": 75,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        624
+      ],
+      "id": "f5cfa9e1-0300-4eb2-a4d8-9bd02b3000db",
+      "name": "80% or Higher Qualification"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Kvh859aJxGjVRs615mcW-4beAeB9CYEtc3eiun_ZaTw",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Job",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Kvh859aJxGjVRs615mcW-4beAeB9CYEtc3eiun_ZaTw/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Company Name": "={{ $json.output.company_name }}",
+            "Job Description": "={{ $json.output.job_description }}",
+            "Rating": "={{ $json.output.rating }}",
+            "Justification": "={{ $json.output.justification }}",
+            "URL": "={{ $json.output['Job application link'] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Rating",
+              "displayName": "Rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Justification",
+              "displayName": "Justification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "URL",
+              "displayName": "URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Application Date",
+              "displayName": "Application Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1936,
+        256
+      ],
+      "id": "db9d7435-5407-4cfd-b8b6-101634b6a483",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ZkH2iTXQjperprwA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keyword filter for working-student roles\nconst KEYWORDS = [\n  \"werkstudent\", \"werk-student\", \"werk student\",\n  \"working student\", \"working-student\", \"workingstudent\",\n  \"studentische hilfskraft\", \"studentische aushilfe\",\n  \"student assistant\", \"teilzeit\", \"werkstud\", \"werkst\"\n];\n\nfunction containsKeyword(text){\n  if(!text) return false;\n  const t = text.toLowerCase();\n  return KEYWORDS.some(k => {\n    const esc = k.replace(/[.*+?^${}()|[\\]\\\\]/g,\"\\\\$&\");\n    return new RegExp(\"\\\\b\" + esc + \"\\\\b\",\"i\").test(t);\n  });\n}\n\nconst out = [];\nfor(const it of items){\n  const job = it.json || {};\n  const title = (job.title || job.jobTitle || \"\").toString();\n  const desc  = (job.description || job.fullDescription || \"\").toString();\n  const company = (job.companyName || job.company || \"\").toString();\n  \n  const isMatch = containsKeyword(title) || containsKeyword(desc) || containsKeyword(company);\n\n  if(isMatch){\n    job._working_student = true;\n    out.push({ json: job });\n  } else {\n    // Option A: drop non-matching items by *not* pushing them\n    // (uncomment the next line to drop)\n    continue;\n\n    // Option B: keep but mark as filtered (useful for audit)\n    //job._working_student = false;\n    //out.push({ json: job });\n  }\n}\nreturn out;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        -96
+      ],
+      "id": "607d1490-44ca-4269-b4b1-94075e502fd3",
+      "name": "Post-filter for Jobs"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1936,
+        912
+      ],
+      "id": "8bb759f7-9ea9-420f-8e60-1848e17608ae",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3472,
+        -96
+      ],
+      "id": "10589dbf-9b0a-4584-af6b-eda7d1b1bf72",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "folderId": "=1mHHMD7m9NksIVveVbikTrQvSjZQO8-Ex",
+        "title": "={{ $json.output.company_name }}"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1936,
+        464
+      ],
+      "id": "2cecf725-a35d-4496-8b72-086f23674476",
+      "name": "Create a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "dVblnxMgLdYAThAT",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "={{ $json.output }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        2784,
+        528
+      ],
+      "id": "056fefed-89f3-4268-b9eb-4958b23e6471",
+      "name": "Update a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "dVblnxMgLdYAThAT",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2480,
+        528
+      ],
+      "id": "0fd56a98-d66c-4bb2-943e-4d223ccfcfd5",
+      "name": "Document + Justification"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Please analyze whether this candidate is a strong fit for the following role and provide a detailed justification.\n\nJOB DETAILS:\nTarget Company: {{ $json.output.company_name }}\nJob Description: {{ $json.output.job_description }}\nInitial Match Rating: {{ $json.output.rating }}\n\nCANDIDATE INFO (MY RESUME):\n{{ $('Extract from File').first().json.text }}\n\nINSTRUCTIONS:\nIdentify the top 3-5 required skills or qualifications from the job description.\nMap each requirement to specific, verifiable evidence from the candidate resume.\nHighlight the candidate's strongest matching points.\nIdentify any gaps or areas where the candidate may need to develop further.\nProvide an overall fit assessment with a clear recommendation.\nOutput a structured, professional justification of 200-250 words.\nBase everything strictly on the resume - do not invent or assume any experience.",
+        "options": {
+          "systemMessage": "=You are an expert Technical Recruiter and Career Advisor with deep knowledge of software engineering roles.\n\nYour task is to provide a detailed, honest fit analysis between a candidate resume and a job description.\n\nSTRICT RULES\nDo NOT invent achievements, responsibilities, or skills.\nBase analysis strictly on the provided resume.\nBe honest about both strengths and gaps.\n\nSTRUCTURE\n1. Top Matching Strengths: 3-5 bullet points mapping job requirements to resume evidence\n2. Potential Gaps: 1-3 honest gaps or areas for development\n3. Overall Recommendation: A clear fit verdict with reasoning\n\nSTYLE\nTone: professional, objective, concise\nWord count: 200-250 words\n\nOUTPUT FORMAT\nProduce only the structured justification body."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        1936,
+        640
+      ],
+      "id": "983a835d-ef2a-4f40-b0b4-300db882d4e1",
+      "name": "Fit Justification Agent"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Search files and folders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search files and folders": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Resume + Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Merge Resume + Jobs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Job Match AI Agent": {
+      "main": [
+        [
+          {
+            "node": "80% or Higher Qualification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Resume + Jobs": {
+      "main": [
+        [
+          {
+            "node": "Post-filter for Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Job Match AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Fit Justification Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Job Match AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Fit Justification Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Job Match AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "80% or Higher Qualification": {
+      "main": [
+        [
+          {
+            "node": "Create a document",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fit Justification Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post-filter for Jobs": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "No Operation, do nothing": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Job Match AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a document": {
+      "main": [
+        [
+          {
+            "node": "Document + Justification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a document": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Document + Justification": {
+      "main": [
+        [
+          {
+            "node": "Update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fit Justification Agent": {
+      "main": [
+        [
+          {
+            "node": "Document + Justification",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a09d13ae-c0dd-4008-a853-251e9d7f6815",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8c5a568e9dcf0a961b7f0de9034f574e1bd48d64f680bf9b16d02fe71301263a"
+  },
+  "id": "prWH86khCF6ilPgv",
+  "tags": []
+}
